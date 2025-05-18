@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>جستجوی مراجعه‌کننده</title>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/persian-date@1.0.6/dist/persian-date.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+  <style>
+    body {
+      direction: rtl;
+      font-family: Tahoma, sans-serif;
+      background-color: #f1f8ff;
+      padding: 40px;
+      color: #333;
+      text-align: center;
+    }
+    .box {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    }
+    input, select, button {
+      width: 90%;
+      padding: 10px;
+      margin-top: 15px;
+      font-size: 15px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+    }
+    button {
+      background-color: #1976d2;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 30px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      padding: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>جستجوی مراجعه‌کننده براساس تاریخ</h2>
+    <label>تاریخ مورد نظر:</label>
+    <input type="text" id="calendar" readonly>
+
+    <button onclick="search()">جستجو</button>
+
+    <div class="result" id="result">نتیجه‌ای نمایش داده نشده.</div>
+  </div>
+
+  <script>
+    const customers = [
+      {
+        name: "سارا احمدی",
+        phone: "09120000001",
+        areas: ["پا", "دست"],
+        timeStart: "09:00",
+        timeEnd: "12:00",
+        startDate: "1403/02/20",
+        endDate: "1403/02/27",
+        weekdays: ["دوشنبه", "چهارشنبه"],
+        evenDay: true,
+        status: "در انتظار"
+      },
+      {
+        name: "مینا رضایی",
+        phone: "09120000002",
+        areas: ["پکیج کامل"],
+        timeStart: "",
+        timeEnd: "",
+        startDate: "",
+        endDate: "",
+        weekdays: [],
+        evenDay: false,
+        status: "در انتظار"
+      }
+    ];
+
+    $("#calendar").persianDatepicker({
+      format: 'YYYY/MM/DD',
+      autoClose: true,
+      initialValue: false
+    });
+
+    function getWeekdayName(date) {
+      const days = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];
+      return days[date.getDay()];
+    }
+
+    function isEvenDay(date) {
+      return date.getDate() % 2 === 0;
+    }
+
+    function toGregorian(persianStr) {
+      const [y, m, d] = persianStr.split('/').map(Number);
+      return new persianDate([y, m, d]).toDate();
+    }
+
+    function search() {
+      const input = document.getElementById("calendar").value;
+      const box = document.getElementById("result");
+      if (!input) {
+        box.innerText = "لطفاً تاریخ را انتخاب کنید.";
+        return;
+      }
+
+      const target = toGregorian(input);
+      const day = getWeekdayName(target);
+      const even = isEvenDay(target);
+      const matched = [];
+
+      for (const c of customers) {
+        const from = c.startDate ? toGregorian(c.startDate) : null;
+        const to = c.endDate ? toGregorian(c.endDate) : null;
+        const inRange = (!from || target >= from) && (!to || target <= to);
+        const weekdayMatch = c.weekdays.length === 0 || c.weekdays.includes(day);
+        const evenMatch = !c.evenDay || even;
+        const statusOk = c.status !== "انجام شد";
+
+        if (inRange && weekdayMatch && evenMatch && statusOk) {
+          matched.push(c);
+        }
+      }
+
+      if (matched.length === 0) {
+        box.innerText = "مراجعه‌ای برای این تاریخ یافت نشد.";
+        return;
+      }
+
+      box.innerHTML = matched.map(c =>
+        `<p><strong>${c.name}</strong> - ${c.phone}<br>ناحیه: ${c.areas.join(", ")}<br>ساعت: ${c.timeStart || "کل روز"} تا ${c.timeEnd || "پایان"}</p>`
+      ).join("<hr>");
+    }
+  </script>
+</body>
+</html>
