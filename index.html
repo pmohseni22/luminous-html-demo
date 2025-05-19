@@ -1,0 +1,170 @@
+
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>جست‌وجوی تاریخ</title>
+  <style>
+    body {
+      direction: rtl;
+      font-family: Tahoma, sans-serif;
+      background: #f0f7ff;
+      padding: 40px;
+      text-align: center;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #1976d2;
+    }
+    select, input, button {
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      width: 90%;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    .results {
+      margin-top: 30px;
+      text-align: right;
+    }
+    .result {
+      background: #e8f0fe;
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>تاریخ جست‌وجو</h2>
+    <div>
+      <label>انتخاب تاریخ:</label><br>
+      <select id="day"><option>روز</option></select>
+      <select id="month">
+        <option value="1">فروردین</option><option value="2">اردیبهشت</option><option value="3">خرداد</option>
+        <option value="4">تیر</option><option value="5">مرداد</option><option value="6">شهریور</option>
+        <option value="7">مهر</option><option value="8">آبان</option><option value="9">آذر</option>
+        <option value="10">دی</option><option value="11">بهمن</option><option value="12">اسفند</option>
+      </select>
+      <select id="year"><option>سال</option></select><br>
+      <button onclick="search()">جست‌وجو</button>
+    </div>
+
+    <div class="results" id="results"></div>
+  </div>
+
+  <script>
+    const fill = (id, start, end) => {
+      const el = document.getElementById(id);
+      for (let i = start; i <= end; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = i;
+        el.appendChild(opt);
+      }
+    };
+
+    window.onload = () => {
+      fill("day", 1, 31);
+      fill("year", 1390, 1405);
+    };
+
+    function getWeekdayName(jy, jm, jd) {
+      const g = toGregorian(jy, jm, jd);
+      const date = new Date(g.gy, g.gm - 1, g.gd);
+      const weekdays = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];
+      return weekdays[date.getDay()];
+    }
+
+    function toGregorian(jy, jm, jd) {
+      const jdn = jalaliToJDN(jy, jm, jd);
+      return JDNToGregorian(jdn);
+    }
+
+    function jalaliToJDN(jy, jm, jd) {
+      var epbase = jy - (jy >= 0 ? 474 : 473);
+      var epyear = 474 + (epbase % 2820);
+      return jd + ((jm <= 7) ? ((jm - 1) * 31) : (((jm - 1) * 30) + 6)) +
+             Math.floor((epyear * 682 - 110) / 2816) +
+             (epyear - 1) * 365 +
+             Math.floor(epbase / 2820) * 1029983 + (1948320.5 - 1);
+    }
+
+    function JDNToGregorian(jdn) {
+      var j = jdn + 0.5;
+      var z = Math.floor(j);
+      var f = j - z;
+      var A = z;
+      var B = A + 1524;
+      var C = Math.floor((B - 122.1) / 365.25);
+      var D = Math.floor(365.25 * C);
+      var E = Math.floor((B - D) / 30.6001);
+      var day = B - D - Math.floor(30.6001 * E) + f;
+      var month = (E < 14) ? E - 1 : E - 13;
+      var year = (month > 2) ? C - 4716 : C - 4715;
+      return { gy: year, gm: month, gd: Math.floor(day) };
+    }
+
+    async function search() {
+      const y = document.getElementById("year").value;
+      const m = document.getElementById("month").value.padStart(2, '0');
+      const d = document.getElementById("day").value.padStart(2, '0');
+      const dateStr = `${y}/${m}/${d}`;
+      const weekday = getWeekdayName(+y, +m, +d);
+      const isEvenDay = ["شنبه", "دوشنبه", "چهارشنبه"].includes(weekday);
+      const isOddDay = ["یکشنبه", "سه‌شنبه", "پنج‌شنبه"].includes(weekday);
+
+      const res = await fetch('customers.json');
+      const data = await res.json();
+      const results = document.getElementById("results");
+      results.innerHTML = '';
+
+      data.forEach(c => {
+        if (c.status !== "در انتظار") return;
+
+        let match = false;
+
+        if (c.date_type === "exact" && c.date_exact === dateStr) match = true;
+        else if (c.date_type === "range" && c.date_from <= dateStr && (!c.date_to || c.date_to >= dateStr)) match = true;
+        else if (c.date_type === "even" && isEvenDay) match = true;
+        else if (c.date_type === "odd" && isOddDay) match = true;
+        else if (c.date_type === "weekday" && c.weekday === weekday) match = true;
+
+        if (match) {
+          results.innerHTML += `
+            <div class="result" id="res-${c.name.replace(/\s/g, '')}">
+              <strong>نام:</strong> ${c.name}<br>
+              <strong>شماره:</strong> ${c.phone}<br>
+              <strong>ناحیه:</strong> ${c.area}<br>
+              <strong>ساعت:</strong> ${c.time_from} تا ${c.time_to}<br>
+              <button onclick="markDone('${c.name}', '${c.phone}')">انجام شد</button>
+            </div>`;
+        }
+      });
+
+      if (!results.innerHTML) {
+        results.innerHTML = `<div class="result">موردی یافت نشد</div>`;
+      }
+    }
+
+    function markDone(name, phone) {
+      if (confirm("آیا مطمئن هستید که این مشتری انجام شده؟")) {
+        const el = document.querySelector(`#res-${name.replace(/\s/g, '')}`);
+        if (el) el.remove();
+        alert("وضعیت به 'انجام شد' تغییر کرد. لطفاً فایل را به‌روزرسانی کنید.");
+      }
+    }
+  </script>
+</body>
+</html>
